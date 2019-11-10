@@ -972,7 +972,7 @@ namespace detail {
         return *this;
     }
 
-    TestCase::TestCase(funcType test, const char* file, unsigned line, const TestSuite& test_suite,
+    TestCase::TestCase(funcType test, void* ptr, const char* file, unsigned line, const TestSuite& test_suite,
                        const char* type, int template_id) {
         m_file              = file;
         m_line              = line;
@@ -986,6 +986,7 @@ namespace detail {
         m_timeout           = test_suite.m_timeout;
 
         m_test        = test;
+        m_ptr         = ptr;
         m_type        = type;
         m_template_id = template_id;
     }
@@ -1001,6 +1002,7 @@ namespace detail {
         static_cast<TestCaseData&>(*this) = static_cast<const TestCaseData&>(other);
 
         m_test        = other.m_test;
+        m_ptr         = other.m_ptr;
         m_type        = other.m_type;
         m_template_id = other.m_template_id;
         m_full_name   = other.m_full_name;
@@ -3230,7 +3232,7 @@ int Context::run() {
 #endif // DOCTEST_CONFIG_NO_EXCEPTIONS
                     FatalConditionHandler fatalConditionHandler; // Handle signals
                     // execute the test
-                    tc.m_test();
+                    tc.m_test(tc.m_ptr);
                     fatalConditionHandler.reset();
 #ifndef DOCTEST_CONFIG_NO_EXCEPTIONS
                 } catch(const TestFailureException&) {

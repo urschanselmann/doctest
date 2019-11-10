@@ -1227,17 +1227,18 @@ namespace detail {
         }
     };
 
-    typedef void (*funcType)();
+    typedef void (*funcType)(void*);
 
     struct DOCTEST_INTERFACE TestCase : public TestCaseData
     {
         funcType m_test; // a function pointer to the test case
+        void* m_ptr;
 
         const char* m_type; // for templated test cases - gets appended to the real name
         int m_template_id; // an ID used to distinguish between the different versions of a templated test case
         String m_full_name; // contains the name (only for templated test cases!) + the template type
 
-        TestCase(funcType test, const char* file, unsigned line, const TestSuite& test_suite,
+        TestCase(funcType test, void* ptr, const char* file, unsigned line, const TestSuite& test_suite,
                  const char* type = "", int template_id = -1);
 
         TestCase(const TestCase& other);
@@ -1746,11 +1747,11 @@ int registerReporter(const char* name, int priority, bool isReporter) {
 #endif // DOCTEST_CONFIG_VOID_CAST_EXPRESSIONS
 
 // registers the test by initializing a dummy var with a function
-#define DOCTEST_REGISTER_FUNCTION(global_prefix, f, decorators)                                    \
+#define DOCTEST_REGISTER_FUNCTION(global_prefix, f, ptr, file, line, decorators)                   \
     global_prefix DOCTEST_GLOBAL_NO_WARNINGS(DOCTEST_ANONYMOUS(_DOCTEST_ANON_VAR_)) =              \
             doctest::detail::regTest(                                                              \
                     doctest::detail::TestCase(                                                     \
-                            f, __FILE__, __LINE__,                                                 \
+                            f, ptr, (file) ? (file) : __FILE__, (line) ? (line) : __LINE__,        \
                             doctest_detail_test_suite_ns::getCurrentTestSuite()) *                 \
                     decorators);                                                                   \
     DOCTEST_GLOBAL_NO_WARNINGS_END()
@@ -1761,23 +1762,23 @@ int registerReporter(const char* name, int priority, bool isReporter) {
         {                                                                                          \
             void f();                                                                              \
         };                                                                                         \
-        static void func() {                                                                       \
+        static void func(void*) {                                                                  \
             der v;                                                                                 \
             v.f();                                                                                 \
         }                                                                                          \
-        DOCTEST_REGISTER_FUNCTION(DOCTEST_EMPTY, func, decorators)                                 \
+        DOCTEST_REGISTER_FUNCTION(DOCTEST_EMPTY, func, nullptr, nullptr, 0, decorators)            \
     }                                                                                              \
     inline DOCTEST_NOINLINE void der::f()
 
 #define DOCTEST_CREATE_AND_REGISTER_FUNCTION(f, decorators)                                        \
-    static void f();                                                                               \
-    DOCTEST_REGISTER_FUNCTION(DOCTEST_EMPTY, f, decorators)                                        \
-    static void f()
+    static void f(void*);                                                                          \
+    DOCTEST_REGISTER_FUNCTION(DOCTEST_EMPTY, f, nullptr, nullptr, 0, decorators)                   \
+    static void f(void*)
 
 #define DOCTEST_CREATE_AND_REGISTER_FUNCTION_IN_CLASS(f, proxy, decorators)                        \
     static doctest::detail::funcType proxy() { return f; }                                         \
-    DOCTEST_REGISTER_FUNCTION(inline const, proxy(), decorators)                                   \
-    static void f()
+    DOCTEST_REGISTER_FUNCTION(inline const, proxy(), nullptr, nullptr, 0, decorators)              \
+    static void f(void*)
 
 // for registering tests
 #define DOCTEST_TEST_CASE(decorators)                                                              \
@@ -1814,7 +1815,7 @@ int registerReporter(const char* name, int priority, bool isReporter) {
 
 #define DOCTEST_TEST_CASE_TEMPLATE_DEFINE_IMPL(dec, T, iter, func)                                 \
     template <typename T>                                                                          \
-    static void func();                                                                            \
+    static void func(void*);                                                                       \
     namespace {                                                                                    \
         template <typename Tuple>                                                                  \
         struct iter;                                                                               \
@@ -1822,7 +1823,7 @@ int registerReporter(const char* name, int priority, bool isReporter) {
         struct iter<std::tuple<Type, Rest...>>                                                     \
         {                                                                                          \
             iter(const char* file, unsigned line, int index) {                                     \
-                doctest::detail::regTest(doctest::detail::TestCase(func<Type>, file, line,         \
+                doctest::detail::regTest(doctest::detail::TestCase(func<Type>, nullptr, file, line,\
                                             doctest_detail_test_suite_ns::getCurrentTestSuite(),   \
                                             doctest::detail::type_to_string<Type>(),               \
                                             int(line) * 1000 + index)                              \
@@ -1837,7 +1838,7 @@ int registerReporter(const char* name, int priority, bool isReporter) {
         };                                                                                         \
     }                                                                                              \
     template <typename T>                                                                          \
-    static void func()
+    static void func(void*)
 
 #define DOCTEST_TEST_CASE_TEMPLATE_DEFINE(dec, T, id)                                              \
     DOCTEST_TEST_CASE_TEMPLATE_DEFINE_IMPL(dec, T, DOCTEST_CAT(id, ITERATOR),                      \
@@ -1860,7 +1861,7 @@ int registerReporter(const char* name, int priority, bool isReporter) {
     DOCTEST_TEST_CASE_TEMPLATE_DEFINE_IMPL(dec, T, DOCTEST_CAT(anon, ITERATOR), anon);             \
     DOCTEST_TEST_CASE_TEMPLATE_INSTANTIATE_IMPL(anon, anon, std::tuple<__VA_ARGS__>)               \
     template <typename T>                                                                          \
-    static void anon()
+    static void anon(void*)
 
 #define DOCTEST_TEST_CASE_TEMPLATE(dec, T, ...)                                                    \
     DOCTEST_TEST_CASE_TEMPLATE_IMPL(dec, T, DOCTEST_ANONYMOUS(_DOCTEST_ANON_TMP_), __VA_ARGS__)
